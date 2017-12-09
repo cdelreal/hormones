@@ -1,12 +1,12 @@
-#calculate standard curve
+# calculate standard curve
 
 ss <- read.table("raw.csv", header = TRUE, sep = ',')
 
-#removing 50 25 12.5 from the curve
-# killna <- which(ss$standard_conc %in% c(50))
-# ss$standard_conc[killna] <- NA
+# removing 50 25 12.5 from the curve
+killna <- which(ss$standard_conc %in% c(50))
+ss$standard_conc[killna] <- NA
 
-#is blank already subtracted?
+# is blank already subtracted?
 deseblank <- which(ss$lab == "blank")
 blank <- mean(ss[deseblank,]$rawod)
 # od <- ss$rawod - blank
@@ -38,7 +38,7 @@ standards_mean <- as.vector(tapply(standards, standardlabels, mean, na.rm = TRUE
 
 library(nplr)
 
-#do it by percent binding
+# do it by percent binding
 standards_pbb0 <- standards_mean / b0
 
 mod_percentbinding <- nplr(conc, standards_pbb0, npars = 4)
@@ -49,10 +49,11 @@ abline(0,1)
 cbind(ypred, yexp, round(100*ypred / yexp))
 
 
-#calculate concentration from OD
+# calculate concentration from OD
 # desesamples <- which(substring(ss$lab, 1, 1) == "b" | substring(ss$lab, 1, 1) == "m")
 
-desesamples <- which(ss$dilution == 0.25)
+desesamples <- which(ss$dilution == 0.0625)
+# desesamples <- 21:nrow(ss)
 
 absconc_pgmL <- getEstimates(mod_percentbinding, pbb0[desesamples])$x
 # par(mfrow = c(1,2))
