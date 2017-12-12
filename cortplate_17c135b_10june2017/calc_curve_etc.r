@@ -2,7 +2,7 @@
 
 ss <- read.table("raw.csv", header = TRUE, sep = ',')
 
-#removing 50 25 12.5 from the curve
+# removing extraneous standards from the curve
 # killna <- which(ss$standard_conc %in% c(50))
 # ss$standard_conc[killna] <- NA
 
