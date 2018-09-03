@@ -73,6 +73,12 @@ legend(600, 0.75, c("standard curve", "samples"), lty = c(1, NA), col = c("black
 # axis(4, at = pbb0[desesamples], labels = ss$lab[desesamples], las = 1)
 text(absconc_pgmL, pbb0[desesamples], ss$lab[desesamples])
 
+orig_pgmL <- absconc_pgmL / ss$dilution[desesamples]
+orig_ng_g <- orig_pgmL * (0.250 /1) * (1/1000) * (1/ss$neat_mass_mg[desesamples]) * (1000/1)
+# (ng / g) = (pg / mL) * (0.250 mL / 1) * (1 ng / 1000 pg) * (1 / sample mass mg) * (1000 mg / 1 g)
+
+data.frame(ss$lab[desesamples], orig_ng_g, absconc_pgmL)
+
 # write.table(
 data.frame(absconc_pgmL, pbb0[desesamples], ss$lab[desesamples])
 # ,
