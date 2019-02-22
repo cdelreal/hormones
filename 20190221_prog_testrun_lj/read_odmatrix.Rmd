@@ -1,0 +1,83 @@
+# Hormnone plate
+
+Read in and apply labels to od matrix
+
+```{r}
+ods <- read.table("20190221_plate_od.csv", header = FALSE, sep = ',', stringsAsFactors = FALSE)
+labs <- read.table("20190221_plate_labels.csv", header = FALSE, sep = ',', stringsAsFactors = FALSE)
+conc <- read.table("20190221_plate_conc.csv", header = FALSE, sep = ',', stringsAsFactors = FALSE, na.strings = "unk")
+dil <- read.table("20190221_plate_dil.csv", header = FALSE, sep = ',', stringsAsFactors = FALSE, na.strings = "NA")
+od_table <- data.frame(rawod = do.call('c', ods), lab = do.call('c', labs), conc = do.call('c', conc), stringsAsFactors = FALSE, dil = do.call('c', dil))
+
+# remove any failed cells
+od_table <- od_table[od_table$lab != "fail", ]
+```
+
+Check our duplicates
+
+```{r}
+ulab <- unique(od_table$lab)
+percent_difference <- vector(length = length(ulab))
+
+for(i in 1:length(ulab)) {
+  dese <- od_table$lab == ulab[i]
+  percent_difference[i] <- diff(od_table$rawod[dese]) / max(od_table$rawod[dese])
+}
+
+ulab[abs(percent_difference) > .12]
+data.frame(ulab, round(percent_difference*100))
+```
+
+Just for our purposes we can remove the weird b0 value so we can move forward. If this plate was really important you might want to rerun it. Also if this was a production plate we'd want to remove the unknowns with too much percent_difference and rerun them later at this point, but let's leave them in for now. Even if some of the standards look bad at this point I'd still make a standard curve because that's gives us some more options for assessing how good it is.
+
+```{r}
+od_table <- od_table[-30, ]
+```
+
+Now let's average our remaining duplicates.
+
+```{r}
+meanods <- tapply(od_table$rawod, od_table$lab, mean)
+concens <- tapply(od_table$conc, od_table$lab, mean)
+
+meanod_table <- data.frame(lab = names(meanods), rawod = as.vector(meanods), conc = as.vector(concens), stringsAsFactors = FALSE)
+
+# calculate percent binding
+meanod_table$percbind <- meanod_table$rawod / meanod_table$rawod[meanod_table$lab == "b0"]
+
+standards_meanod <- meanod_table[grep("std*", meanod_table$lab), ]
+```
+
+Now let's calculate the standard curve using `nplr`.
+
+```{r}
+library(nplr)
+
+mod_percbind <- nplr(standards_meanod$conc, standards_meanod$percbind, npars = 4)
+```
+
+This is great. Let's do some diagnostics.
+
+```{r}
+ypred <- getEstimates(mod_percbind, standards_meanod$percbind)$x
+yexp <- standards_meanod$conc
+
+plot(yexp, ypred, log = 'xy')
+abline(0, 1)
+cbind(ypred, yexp, round(100*ypred / yexp))
+```
+
+Let's get the estimates for our unknown's now.
+
+```{r}
+unknown_meanod <- meanod_table[grep("s.$", meanod_table$lab), ]
+
+unknown_concs <- getEstimates(mod_percbind, unknown_meanod$percbind)$x
+
+plot(c(standards_meanod$conc, 10^mod_percbind@xCurve), c(standards_meanod$percbind, mod_percbind@yCurve), type = 'n', log = 'x', las = 1)
+lines(10^mod_percbind@xCurve, mod_percbind@yCurve)
+points(standards_meanod$conc, standards_meanod$percbind, pch = 16)
+
+points(unknown_concs, unknown_meanod$percbind, col = "red", pch = 17)
+text(unknown_concs, unknown_meanod$percbind, unknown_meanod$lab)
+```
