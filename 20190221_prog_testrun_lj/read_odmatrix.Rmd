@@ -1,4 +1,4 @@
-# Hormnone plate
+# hormone plate
 
 Read in and apply labels to od matrix
 
@@ -28,24 +28,19 @@ ulab[abs(percent_difference) > .12]
 data.frame(ulab, round(percent_difference*100))
 ```
 
-Just for our purposes we can remove the weird b0 value so we can move forward. If this plate was really important you might want to rerun it. Also if this was a production plate we'd want to remove the unknowns with too much percent_difference and rerun them later at this point, but let's leave them in for now. Even if some of the standards look bad at this point I'd still make a standard curve because that's gives us some more options for assessing how good it is.
-
-```{r}
-od_table <- od_table[-30, ]
-```
-
 Now let's average our remaining duplicates.
 
 ```{r}
 meanods <- tapply(od_table$rawod, od_table$lab, mean)
 concens <- tapply(od_table$conc, od_table$lab, mean)
+dils <- tapply(od_table$dil, od_table$lab, mean)
 
-meanod_table <- data.frame(lab = names(meanods), rawod = as.vector(meanods), conc = as.vector(concens), stringsAsFactors = FALSE)
+meanod_table <- data.frame(lab = names(meanods), rawod = as.vector(meanods), conc = as.vector(concens), dil = as.vector(dils), stringsAsFactors = FALSE)
+meanod_table$od <- meanod_table$rawod - meanod_table$rawod[meanod_table$lab == "nsb"]
 
 # calculate percent binding
-meanod_table$percbind <- meanod_table$rawod / meanod_table$rawod[meanod_table$lab == "b0"]
-
-standards_meanod <- meanod_table[grep("std*", meanod_table$lab), ]
+meanod_table$percbind <- meanod_table$od / meanod_table$od[meanod_table$lab == "b0"]
+standards_meanod <- meanod_table[grep("^s.$", meanod_table$lab), ]
 ```
 
 Now let's calculate the standard curve using `nplr`.
@@ -70,7 +65,7 @@ cbind(ypred, yexp, round(100*ypred / yexp))
 Let's get the estimates for our unknown's now.
 
 ```{r}
-unknown_meanod <- meanod_table[grep("s.$", meanod_table$lab), ]
+unknown_meanod <- meanod_table[2:16, ]
 
 unknown_concs <- getEstimates(mod_percbind, unknown_meanod$percbind)$x
 
@@ -80,4 +75,6 @@ points(standards_meanod$conc, standards_meanod$percbind, pch = 16)
 
 points(unknown_concs, unknown_meanod$percbind, col = "red", pch = 17)
 text(unknown_concs, unknown_meanod$percbind, unknown_meanod$lab)
+
+data.frame(unknown_concs / unknown_meanod$dil, unknown_meanod$lab)
 ```
